@@ -1,4 +1,4 @@
-package Retryer
+package retryables
 
 import (
 	"log"
