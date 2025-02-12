@@ -1,7 +1,8 @@
 package retryables
 
 import (
-	"log"
+	"fmt"
+	"io"
 	"time"
 )
 
@@ -16,18 +17,28 @@ type Retryer interface {
 	// SetConditionFunc sets the condition function used to determine if an error should trigger a retry.
 	// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
 	SetConditionFunc(retryConditionFunc func(error) bool)
-	// SetCount sets the number of retry attempts.
+	// SetCount sets the number of retry attempts by Retry() method.
 	// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
 	SetCount(retryCount int)
-	// SetDelay sets the initial delay and increment for the backoff strategy.
+	// SetDelay sets the initial delay and increment for the backoff strategy used by Retry() method.
 	// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
 	SetDelay(delay, increase time.Duration)
 }
 
-func NewRetryer() Retryer {
-	return &retryer{retryCount: 3, delay: time.Second, increase: 2 * time.Second, retryConditionFunc: func(err error) bool {
-		return err != nil
-	}}
+func NewRetryer(logger io.Writer) Retryer {
+	if logger == nil {
+		logger = io.Discard
+	}
+	return &retryer{
+		retryCount: 3,
+		delay:      time.Second,
+		increase:   2 * time.Second,
+		retryConditionFunc: func(err error) bool {
+			return err != nil
+		},
+		logger: logger,
+	}
+
 }
 
 type retryer struct {
@@ -35,6 +46,7 @@ type retryer struct {
 	retryCount         int
 	delay              time.Duration
 	increase           time.Duration
+	logger             io.Writer
 }
 
 func (r *retryer) Retry(retryFunc RetryableFunc) error {
@@ -48,8 +60,7 @@ func (r *retryer) Retry(retryFunc RetryableFunc) error {
 		if !r.retryConditionFunc(err) {
 			return err
 		}
-		log.Printf("Attempt %d/%d failed: %v", attempt, r.retryCount, err)
-		time.Sleep(sleep)
+		_, _ = fmt.Fprintf(r.logger, "Attempt %d/%d failed: %v\n", attempt+1, r.retryCount, err)
 		sleep += r.increase
 	}
 	return err
