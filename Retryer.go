@@ -13,6 +13,17 @@ type RetryableFunc func() error
 // different retry settings (like different conditions or delays). However, if you have multiple operations
 // that share the same retry settings, you can reuse a single Retryer instance.
 type Retryer interface {
+	// Retry executes the given function with retries based on the configured settings.
+	// The number of attempts is set via SetCount, and the delay between attempts increases
+	// by the increment specified in SetDelay.
+	//
+	// Example
+	//	var data int
+	//	err := retryer.Retry(func() error {
+	//		var err error
+	//		data, err = someFunc(ctx, args)
+	//		return err
+	//	})
 	Retry(retryFunc RetryableFunc) error
 	// SetConditionFunc sets the condition function used to determine if an error should trigger a retry.
 	// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
@@ -38,7 +49,6 @@ func NewRetryer(logger io.Writer) Retryer {
 		},
 		logger: logger,
 	}
-
 }
 
 type retryer struct {
