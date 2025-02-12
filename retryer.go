@@ -50,6 +50,7 @@ func (r *Retryer) Retry(retryFunc RetryableFunc) error {
 			return err
 		}
 		_, _ = fmt.Fprintf(r.logger, "Attempt %d/%d failed: %v\n", attempt+1, r.retryCount, err)
+		time.Sleep(sleep)
 		sleep += r.increase
 	}
 	return err
@@ -61,7 +62,7 @@ func (r *Retryer) SetConditionFunc(retryConditionFunc func(error) bool) {
 	r.retryConditionFunc = retryConditionFunc
 }
 
-// SetCount sets the number of retry attempts by Retry() method.
+// SetCount sets the number of attempts made by Retry() method.
 // This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
 func (r *Retryer) SetCount(retryCount int) {
 	r.retryCount = retryCount
