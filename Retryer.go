@@ -8,39 +8,11 @@ import (
 
 type RetryableFunc func() error
 
-// Retryer is an interface that provides a mechanism for retrying operations with customizable settings.
-// Warning: To ensure proper functionality, a new Retryer instance should be created whenever you need
-// different retry settings (like different conditions or delays). However, if you have multiple operations
-// that share the same retry settings, you can reuse a single Retryer instance.
-type Retryer interface {
-	// Retry executes the given function with retries based on the configured settings.
-	// The number of attempts is set via SetCount, and the delay between attempts increases
-	// by the increment specified in SetDelay.
-	//
-	// Example
-	//	var data int
-	//	err := retryer.Retry(func() error {
-	//		var err error
-	//		data, err = someFunc(ctx, args)
-	//		return err
-	//	})
-	Retry(retryFunc RetryableFunc) error
-	// SetConditionFunc sets the condition function used to determine if an error should trigger a retry.
-	// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
-	SetConditionFunc(retryConditionFunc func(error) bool)
-	// SetCount sets the number of retry attempts by Retry() method.
-	// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
-	SetCount(retryCount int)
-	// SetDelay sets the initial delay and increment for the backoff strategy used by Retry() method.
-	// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
-	SetDelay(delay, increase time.Duration)
-}
-
-func NewRetryer(logger io.Writer) Retryer {
+func NewRetryer(logger io.Writer) *Retryer {
 	if logger == nil {
 		logger = io.Discard
 	}
-	return &retryer{
+	return &Retryer{
 		retryCount: 3,
 		delay:      time.Second,
 		increase:   2 * time.Second,
@@ -51,7 +23,11 @@ func NewRetryer(logger io.Writer) Retryer {
 	}
 }
 
-type retryer struct {
+// A Retryer provides a mechanism for retrying operations with customizable settings.
+// Warning: To ensure proper functionality, a new Retryer instance should be created whenever you need
+// different retry settings (like different conditions or delays). However, if you have multiple operations
+// that share the same retry settings, you can reuse a single Retryer instance.
+type Retryer struct {
 	retryConditionFunc func(error) bool
 	retryCount         int
 	delay              time.Duration
@@ -59,7 +35,10 @@ type retryer struct {
 	logger             io.Writer
 }
 
-func (r *retryer) Retry(retryFunc RetryableFunc) error {
+// Retry executes the given function with retries based on the configured settings.
+// The number of attempts is set via SetCount, and the delay between attempts increases
+// by the increment specified in SetDelay.
+func (r *Retryer) Retry(retryFunc RetryableFunc) error {
 	sleep := r.delay
 	var err error
 	for attempt := 0; attempt < r.retryCount; attempt++ {
@@ -76,15 +55,21 @@ func (r *retryer) Retry(retryFunc RetryableFunc) error {
 	return err
 }
 
-func (r *retryer) SetConditionFunc(retryConditionFunc func(error) bool) {
+// SetConditionFunc sets the condition function used to determine if an error should trigger a retry.
+// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
+func (r *Retryer) SetConditionFunc(retryConditionFunc func(error) bool) {
 	r.retryConditionFunc = retryConditionFunc
 }
 
-func (r *retryer) SetCount(retryCount int) {
+// SetCount sets the number of retry attempts by Retry() method.
+// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
+func (r *Retryer) SetCount(retryCount int) {
 	r.retryCount = retryCount
 }
 
-func (r *retryer) SetDelay(delay, increase time.Duration) {
+// SetDelay sets the initial delay and increment for the backoff strategy used by Retry() method.
+// This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
+func (r *Retryer) SetDelay(delay, increase time.Duration) {
 	r.delay = delay
 	r.increase = increase
 }
