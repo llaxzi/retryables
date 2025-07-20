@@ -1,8 +1,11 @@
 package retryables
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"math"
+	"math/rand"
 	"time"
 )
 
@@ -14,8 +17,8 @@ func NewRetryer(logger io.Writer) *Retryer {
 	}
 	return &Retryer{
 		retryCount: 3,
-		delay:      time.Second,
-		increase:   2 * time.Second,
+		baseDelay:  time.Second,
+		maxDelay:   8 * time.Second,
 		retryConditionFunc: func(err error) bool {
 			return err != nil
 		},
@@ -30,18 +33,21 @@ func NewRetryer(logger io.Writer) *Retryer {
 type Retryer struct {
 	retryConditionFunc func(error) bool
 	retryCount         int
-	delay              time.Duration
-	increase           time.Duration
+	baseDelay          time.Duration
+	maxDelay           time.Duration
 	logger             io.Writer
 }
 
 // Retry executes the given function with retries based on the configured settings.
 // The number of attempts is set via SetCount, and the delay between attempts increases
 // by the increment specified in SetDelay.
-func (r *Retryer) Retry(retryFunc RetryableFunc) error {
-	sleep := r.delay
+func (r *Retryer) Retry(ctx context.Context, retryFunc RetryableFunc) error {
 	var err error
 	for attempt := 0; attempt < r.retryCount; attempt++ {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		
 		err = retryFunc()
 		if err == nil {
 			return nil
@@ -49,9 +55,26 @@ func (r *Retryer) Retry(retryFunc RetryableFunc) error {
 		if !r.retryConditionFunc(err) {
 			return err
 		}
+
 		_, _ = fmt.Fprintf(r.logger, "Attempt %d/%d failed: %v\n", attempt+1, r.retryCount, err)
-		time.Sleep(sleep)
-		sleep += r.increase
+
+		if attempt == r.retryCount-1 {
+			return err
+		}
+
+		backoff := r.baseDelay * time.Duration(math.Pow(2, float64(attempt)))
+		backoff = min(backoff, r.maxDelay)
+
+		jitter := time.Duration(rand.Int63n(int64(backoff)))
+
+		//time.Sleep(jitter)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(jitter):
+		}
+
 	}
 	return err
 }
@@ -68,9 +91,9 @@ func (r *Retryer) SetCount(retryCount int) {
 	r.retryCount = retryCount
 }
 
-// SetDelay sets the initial delay and increment for the backoff strategy used by Retry() method.
+// SetDelay sets the base delay and max delay for the exponential backoff strategy used by Retry() method.
 // This method is intended for initialization and is not thread-safe if modified dynamically at runtime.
-func (r *Retryer) SetDelay(delay, increase time.Duration) {
-	r.delay = delay
-	r.increase = increase
+func (r *Retryer) SetDelay(baseDelay, maxDelay time.Duration) {
+	r.baseDelay = baseDelay
+	r.maxDelay = maxDelay
 }
