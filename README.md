@@ -9,9 +9,9 @@ go get github.com/llaxzi/retryables
 ## Quick Start
 ```sh
 retryer := retryables.NewRetryer(os.Stdout) // Retryer with logger
-retryer.SetDelay(1, 2)
+retryer.SetDelay(1*time.Second, 5*time.Second)
 retryer.SetCount(3) // Make 3 attempts
-retryer.SetConditionFunc(func(err error) bool {
+retryer.SetConditionFunc(context.Background(), func(err error) bool {
   return errors.Is(err, syscall.EBUSY) // Retry if error is "file busy"
 	})
 // Usage
