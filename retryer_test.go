@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/llaxzi/retryables/v2"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+
+	"github.com/llaxzi/retryables/v3"
 )
 
 func ExampleRetryer_Retry() {
