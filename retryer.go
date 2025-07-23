@@ -47,7 +47,7 @@ func (r *Retryer) Retry(ctx context.Context, retryFunc RetryableFunc) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		
+
 		err = retryFunc()
 		if err == nil {
 			return nil

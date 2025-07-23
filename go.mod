@@ -1,4 +1,4 @@
-module github.com/llaxzi/retryables/v2
+module github.com/llaxzi/retryables/v3
 
 go 1.22
 
